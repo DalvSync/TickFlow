@@ -1,0 +1,28 @@
+# ========================================== #
+#            TickFlow Configuration          #
+# ========================================== #
+
+features:
+  # Remove skeleton arrows on hit
+  projectile-cleanup:
+    enabled: true
+
+  # Disabling AI for villagers in farms (in minecarts/tight blocks)
+  villager-lobotomy:
+    enabled: true
+
+  # Accelerated disappearance of garbage
+  fast-trash-despawn:
+    enabled: true
+    # How many ticks will it take for the trash to disappear (5100 ticks = 45 seconds)
+    ticks-lived-to-set: 5100
+
+  # Aggressive merging of objects
+  item-merging:
+    enabled: true
+    merge-radius: 3.5 # Радиус поиска предметов для склеивания (в блоках)
+
+  # Aggressive merging of exp spheres
+  xp-merging:
+    enabled: true
+    merge-radius: 4.0 # Radius of gluing exp spheres
