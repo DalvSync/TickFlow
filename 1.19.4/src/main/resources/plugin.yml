@@ -1,0 +1,4 @@
+name: TickFlow
+version: '${version}'
+main: org.dalvsync.tickflow.TickFlow
+api-version: '1.19'
