@@ -2,7 +2,6 @@
 [![Purpur](https://raw.githubusercontent.com/intergrav/devins-badges/v3/assets/cozy/supported/purpur_vector.svg)](https://purpurmc.org)
 [![Modrinth](https://github.com/intergrav/devins-badges/raw/refs/heads/v3/assets/cozy/available/modrinth_vector.svg)](https://modrinth.com/plugin/tickflow)
 
----
 # TickFlow ⚡
 A lightweight, Folia-compatible optimization plugin designed to squeeze maximum performance out of any hardware. TickFlow targets the biggest causes of server lag without ruining the vanilla survival experience.
 
