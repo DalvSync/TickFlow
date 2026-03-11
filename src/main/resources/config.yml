@@ -3,7 +3,17 @@
 # ========================================== #
 
 features:
-  # Remove skeleton arrows on hit
+  # Limit the number of entities of the same type in a single chunk
+  # Prevents massive animal farms from lagging the server
+  chunk-entity-limiter:
+    enabled: true
+    max-per-type: 25 # Maximum number of pigs/cows/zombies etc. per chunk
+
+  # Disable gravity and ticking for invisible/marker armor stands (Requires Paper)
+  armor-stand-optimization:
+    enabled: true
+
+  # Remove skeleton arrows and other projectiles on hit
   projectile-cleanup:
     enabled: true
 
@@ -11,18 +21,27 @@ features:
   villager-lobotomy:
     enabled: true
 
-  # Accelerated disappearance of garbage
+  # Accelerated disappearance of garbage items
   fast-trash-despawn:
     enabled: true
     # How many ticks will it take for the trash to disappear (5100 ticks = 45 seconds)
     ticks-lived-to-set: 5100
 
-  # Aggressive merging of objects
+  # Aggressive merging of dropped items
+  # Note: If you use Paper, it's recommended to rely on Paper's native merging instead
   item-merging:
-    enabled: true
-    merge-radius: 3.5 # Радиус поиска предметов для склеивания (в блоках)
+    enabled: false
+    merge-radius: 3.5 # Search radius for items to glue (in blocks)
 
   # Aggressive merging of exp spheres
   xp-merging:
     enabled: true
     merge-radius: 4.0 # Radius of gluing exp spheres
+
+  # Adaptive monster spawn reduction during TPS drops
+  adaptive-spawn-throttling:
+    enabled: true
+
+  # Adaptive slowdown of heavy farm growth under strong lags
+  adaptive-growth-throttling:
+    enabled: true

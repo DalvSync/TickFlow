@@ -1,28 +1,90 @@
 package org.dalvsync.tickflow;
 
-import org.bukkit.Chunk;
-import org.bukkit.Material;
-import org.bukkit.block.Block;
-import org.bukkit.entity.*;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-import org.bukkit.event.entity.CreatureSpawnEvent;
-import org.bukkit.event.entity.EntitySpawnEvent;
-import org.bukkit.event.entity.ItemSpawnEvent;
-import org.bukkit.event.entity.ProjectileHitEvent;
-import org.bukkit.event.world.ChunkUnloadEvent;
-import org.bukkit.event.world.EntitiesLoadEvent;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.dalvsync.tickflow.commands.ReloadCommand;
+import org.dalvsync.tickflow.config.Config;
+import org.dalvsync.tickflow.listeners.EntityOptimizerListener;
+import org.dalvsync.tickflow.listeners.MechanicsListener;
+import org.dalvsync.tickflow.listeners.VillagerListener;
 
-public final class TickFlow extends JavaPlugin implements Listener {
+public final class TickFlow extends JavaPlugin {
+
+    public static boolean IS_PAPER = false;
+    public static boolean IS_FOLIA = false;
+
+    private int reloadCommandsExecuted = 0;
 
     @Override
     public void onEnable() {
-        saveDefaultConfig();
+        checkServerSoftware();
 
-        getServer().getPluginManager().registerEvents(this, this);
-        getLogger().info("TickFlow is live! Config loaded, smart features activated.");
+        Config.load(this);
+
+        getServer().getPluginManager().registerEvents(new EntityOptimizerListener(this), this);
+        getServer().getPluginManager().registerEvents(new MechanicsListener(), this);
+        getServer().getPluginManager().registerEvents(new VillagerListener(this), this);
+
+        if (getCommand("tickflow") != null) {
+            getCommand("tickflow").setExecutor(new ReloadCommand(this));
+        }
+
+        setupMetrics();
+
+        getLogger().info("TickFlow is live! Modular architecture and smart features activated.");
+    }
+
+    public void incrementReloadCount() {
+        reloadCommandsExecuted++;
+    }
+
+    private void setupMetrics() {
+        int pluginId = 29952;
+        Metrics metrics = new Metrics(this, pluginId);
+
+        metrics.addCustomChart(new Metrics.SimplePie("chunk_limiter_enabled",
+                () -> Config.chunkLimiterEnabled ? "On" : "Off"));
+
+        metrics.addCustomChart(new Metrics.SimplePie("armor_stand_optimization",
+                () -> Config.armorStandOptimization ? "On" : "Off"));
+
+        metrics.addCustomChart(new Metrics.SimplePie("projectile_cleanup",
+                () -> Config.projectileCleanupEnabled ? "On" : "Off"));
+
+        metrics.addCustomChart(new Metrics.SimplePie("villager_lobotomy",
+                () -> Config.villagerLobotomyEnabled ? "On" : "Off"));
+
+        metrics.addCustomChart(new Metrics.SimplePie("fast_trash_despawn",
+                () -> Config.fastTrashDespawnEnabled ? "On" : "Off"));
+
+        metrics.addCustomChart(new Metrics.SimplePie("item_merging",
+                () -> Config.itemMergeEnabled ? "On" : "Off"));
+
+        metrics.addCustomChart(new Metrics.SimplePie("xp_merging",
+                () -> Config.xpMergeEnabled ? "On" : "Off"));
+
+        metrics.addCustomChart(new Metrics.SimplePie("adaptive_spawn_throttling",
+                () -> Config.adaptiveSpawnEnabled ? "On" : "Off"));
+
+        metrics.addCustomChart(new Metrics.SimplePie("adaptive_growth_throttling",
+                () -> Config.adaptiveGrowthEnabled ? "On" : "Off"));
+
+        metrics.addCustomChart(new Metrics.SimplePie("chunk_limiter_max",
+                () -> String.valueOf(Config.maxEntitiesPerChunk)));
+
+        metrics.addCustomChart(new Metrics.SimplePie("fast_trash_despawn_ticks",
+                () -> String.valueOf(Config.trashDespawnTicks)));
+
+        metrics.addCustomChart(new Metrics.SimplePie("item_merging_radius",
+                () -> String.valueOf(Config.itemMergeRadius)));
+
+        metrics.addCustomChart(new Metrics.SimplePie("xp_merging_radius",
+                () -> String.valueOf(Config.xpMergeRadius)));
+
+        metrics.addCustomChart(new Metrics.SingleLineChart("reload_commands_usage", () -> {
+            int count = reloadCommandsExecuted;
+            reloadCommandsExecuted = 0;
+            return count;
+        }));
     }
 
     @Override
@@ -30,123 +92,21 @@ public final class TickFlow extends JavaPlugin implements Listener {
         getLogger().info("TickFlow is disabled.");
     }
 
-    @EventHandler
-    public void onProjectileHit(ProjectileHitEvent event) {
-        if (!getConfig().getBoolean("features.projectile-cleanup.enabled")) return;
-
-        if (event.getEntity() instanceof AbstractArrow arrow) {
-            if (event.getHitBlock() != null) {
-                if (arrow instanceof Trident || arrow.getShooter() instanceof Player) {
-                    return;
-                }
-                arrow.remove();
-            }
+    private void checkServerSoftware() {
+        try {
+            Class.forName("com.destroystokyo.paper.PaperConfig");
+            IS_PAPER = true;
+        } catch (ClassNotFoundException e) {
+            IS_PAPER = false;
+            getLogger().warning("Paper not found! Some advanced optimization features will be disabled.");
         }
-    }
 
-    @EventHandler
-    public void onEntitiesLoad(EntitiesLoadEvent event) {
-        if (!getConfig().getBoolean("features.villager-lobotomy.enabled")) return;
-
-        for (Entity entity : event.getEntities()) {
-            if (entity instanceof Villager villager) {
-                startVillagerTask(villager);
-            }
-        }
-    }
-
-    @EventHandler
-    public void onVillagerSpawn(CreatureSpawnEvent event) {
-        if (!getConfig().getBoolean("features.villager-lobotomy.enabled")) return;
-
-        if (event.getEntity() instanceof Villager villager) {
-            startVillagerTask(villager);
-        }
-    }
-
-    private void startVillagerTask(Villager villager) {
-        villager.getScheduler().runAtFixedRate(this, task -> {
-            if (!villager.isValid()) {
-                task.cancel();
-                return;
-            }
-            boolean trapped = isTrapped(villager);
-            if (villager.isAware() == trapped) {
-                villager.setAware(!trapped);
-            }
-        }, null, 100L, 200L);
-    }
-
-    private boolean isTrapped(Villager villager) {
-        if (villager.isInsideVehicle()) return true;
-
-        Block b = villager.getLocation().getBlock();
-        int solidCount = 0;
-
-        if (b.getRelative(1, 0, 0).getType().isSolid()) solidCount++;
-        if (b.getRelative(-1, 0, 0).getType().isSolid()) solidCount++;
-        if (b.getRelative(0, 0, 1).getType().isSolid()) solidCount++;
-        if (b.getRelative(0, 0, -1).getType().isSolid()) solidCount++;
-
-        return solidCount >= 3;
-    }
-
-    @EventHandler
-    public void onTrashItemSpawn(ItemSpawnEvent event) {
-        if (!getConfig().getBoolean("features.fast-trash-despawn.enabled")) return;
-
-        Item item = event.getEntity();
-        Material type = item.getItemStack().getType();
-
-        if (type == Material.COBBLESTONE || type == Material.DIRT ||
-                type == Material.NETHERRACK || type == Material.GRAVEL ||
-                type == Material.ANDESITE || type == Material.DIORITE || type == Material.GRANITE) {
-
-            int ticks = getConfig().getInt("features.fast-trash-despawn.ticks-lived-to-set", 5100);
-            item.setTicksLived(ticks);
-        }
-    }
-
-    @EventHandler
-    public void onItemSpawnMerge(ItemSpawnEvent event) {
-        if (!getConfig().getBoolean("features.item-merging.enabled")) return;
-
-        Item newItem = event.getEntity();
-        ItemStack newStack = newItem.getItemStack();
-        double radius = getConfig().getDouble("features.item-merging.merge-radius", 3.5);
-
-        for (Entity entity : newItem.getNearbyEntities(radius, radius, radius)) {
-            if (entity instanceof Item nearbyItem && !nearbyItem.isDead()) {
-                ItemStack nearbyStack = nearbyItem.getItemStack();
-
-                if (nearbyStack.isSimilar(newStack)) {
-                    int totalAmount = nearbyStack.getAmount() + newStack.getAmount();
-
-                    if (totalAmount <= nearbyStack.getMaxStackSize()) {
-                        nearbyStack.setAmount(totalAmount);
-                        nearbyItem.setItemStack(nearbyStack);
-                        newItem.remove();
-                        return;
-                    }
-                }
-            }
-        }
-    }
-
-    @EventHandler
-    public void onExpSpawnMerge(EntitySpawnEvent event) {
-        if (!getConfig().getBoolean("features.xp-merging.enabled")) return;
-
-        if (event.getEntity() instanceof ExperienceOrb newOrb) {
-            double radius = getConfig().getDouble("features.xp-merging.merge-radius", 4.0);
-
-            for (Entity entity : newOrb.getNearbyEntities(radius, radius, radius)) {
-                if (entity instanceof ExperienceOrb nearbyOrb && !nearbyOrb.isDead()) {
-                    nearbyOrb.setExperience(nearbyOrb.getExperience() + newOrb.getExperience());
-                    newOrb.remove();
-                    return;
-                }
-            }
+        try {
+            Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
+            IS_FOLIA = true;
+            getLogger().info("Folia detected! Schedulers adapted.");
+        } catch (ClassNotFoundException e) {
+            IS_FOLIA = false;
         }
     }
 }

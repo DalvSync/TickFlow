@@ -11,8 +11,9 @@ import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.world.EntitiesLoadEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitRunnable; // Тот самый классический таймер
+import org.bukkit.scheduler.BukkitRunnable;
 
 public final class TickFlow extends JavaPlugin implements Listener {
 
@@ -23,9 +24,6 @@ public final class TickFlow extends JavaPlugin implements Listener {
         getLogger().info("TickFlow v1.1 for Paper 1.19.x is now active!");
     }
 
-    // ==========================================
-    // 1. Очистка стрел
-    // ==========================================
     @EventHandler
     public void onProjectileHit(ProjectileHitEvent event) {
         if (!getConfig().getBoolean("features.projectile-cleanup.enabled")) return;
@@ -37,9 +35,6 @@ public final class TickFlow extends JavaPlugin implements Listener {
         }
     }
 
-    // ==========================================
-    // 2. Лоботомия жителей (Классический таймер для 1.19.4)
-    // ==========================================
     @EventHandler
     public void onEntitiesLoad(EntitiesLoadEvent event) {
         if (!getConfig().getBoolean("features.villager-lobotomy.enabled")) return;
@@ -55,18 +50,28 @@ public final class TickFlow extends JavaPlugin implements Listener {
     }
 
     private void startVillagerTask(Villager villager) {
-        // Запускаем асинхронную задачу через BukkitRunnable
         new BukkitRunnable() {
             @Override
             public void run() {
-                // Если житель умер или пропал - убиваем задачу
                 if (!villager.isValid()) {
                     this.cancel();
                     return;
                 }
+
                 boolean trapped = isTrapped(villager);
                 if (villager.isAware() == trapped) {
                     villager.setAware(!trapped);
+                }
+
+                if (!villager.isAware()) {
+                    long time = villager.getWorld().getTime();
+                    if (time > 2000 && time < 9000) {
+                        if (Math.random() < 0.05) {
+                            for (MerchantRecipe recipe : villager.getRecipes()) {
+                                recipe.setUses(0);
+                            }
+                        }
+                    }
                 }
             }
         }.runTaskTimer(this, 100L, 200L);
@@ -83,9 +88,6 @@ public final class TickFlow extends JavaPlugin implements Listener {
         return solidCount >= 3;
     }
 
-    // ==========================================
-    // 3. Ускоренное исчезновение мусора
-    // ==========================================
     @EventHandler
     public void onTrashItemSpawn(ItemSpawnEvent event) {
         if (!getConfig().getBoolean("features.fast-trash-despawn.enabled")) return;
@@ -102,9 +104,6 @@ public final class TickFlow extends JavaPlugin implements Listener {
                 type == Material.ANDESITE || type == Material.DIORITE || type == Material.GRANITE;
     }
 
-    // ==========================================
-    // 4. Слияние предметов
-    // ==========================================
     @EventHandler
     public void onItemSpawnMerge(ItemSpawnEvent event) {
         if (!getConfig().getBoolean("features.item-merging.enabled")) return;
@@ -128,9 +127,6 @@ public final class TickFlow extends JavaPlugin implements Listener {
         }
     }
 
-    // ==========================================
-    // 5. Слияние опыта
-    // ==========================================
     @EventHandler
     public void onExpSpawnMerge(EntitySpawnEvent event) {
         if (!getConfig().getBoolean("features.xp-merging.enabled")) return;

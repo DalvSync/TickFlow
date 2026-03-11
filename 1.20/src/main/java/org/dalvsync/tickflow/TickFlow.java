@@ -11,6 +11,7 @@ import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.world.EntitiesLoadEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.MerchantRecipe;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class TickFlow extends JavaPlugin implements Listener {
@@ -48,14 +49,27 @@ public final class TickFlow extends JavaPlugin implements Listener {
     }
 
     private void startVillagerTask(Villager villager) {
-        // Метод getScheduler() доступен в Paper 1.20.1+ и Folia
         villager.getScheduler().runAtFixedRate(this, task -> {
             if (!villager.isValid()) {
                 task.cancel();
                 return;
             }
+
             boolean trapped = isTrapped(villager);
-            if (villager.isAware() == trapped) villager.setAware(!trapped);
+            if (villager.isAware() == trapped) {
+                villager.setAware(!trapped);
+            }
+
+            if (!villager.isAware()) {
+                long time = villager.getWorld().getTime();
+                if (time > 2000 && time < 9000) {
+                    if (Math.random() < 0.05) {
+                        for (MerchantRecipe recipe : villager.getRecipes()) {
+                            recipe.setUses(0);
+                        }
+                    }
+                }
+            }
         }, null, 100L, 200L);
     }
 
